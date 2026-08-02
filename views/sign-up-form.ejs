@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sign Up</title>
+</head>
+<body>
+
+  <h1>Sign Up</h1>
+    <% if (locals.errors) {%>
+    <ul>
+        <% errors.forEach(function(error) { %>
+        <li><%= error.msg %></li>
+        <% }); %>
+    </ul>
+    <% } %>
+  <form action="/sign-up" method="POST">
+
+    <label for="email">Email</label>
+    <input id="email" name="email" placeholder="hello@gmail.com" value="<%= locals.value ? values.email : '' %>" type="email" />
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" />
+    <label for="confirmpassword">Confirm Password</label>
+    <input id="confirmpassword" name="confirmpassword" type="password" />
+    <button type="submit">Sign Up</button>
+  </form>
+</body>
+</html>

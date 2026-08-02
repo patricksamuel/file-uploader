@@ -1,0 +1,161 @@
+//controllers/fileControlers.js
+const { body, validationResult, matchedData } = require("express-validator");
+const passport = require("passport");
+const { prisma } = require("../lib/sigma");
+const multer = require("multer");
+const upload = multer({ dest: "uploads/" });   // define once, here
+const fs = require("node:fs/promises");
+
+
+exports.uploadPage = async (req,res) =>{
+    console.log("searching for folders")
+    const userFolders= await prisma.folder.findMany({
+        where: {owner_id: req.user.id},
+        include: { files: true },
+        orderBy:{id:"asc"}
+    })
+
+    res.render("upload-form",{userFoldersNames:userFolders})
+}
+
+
+exports.uploadFile = async (req,res,next) =>{
+    await prisma.file.create({
+        data:{
+            name :req.file.originalname,
+            path :req.file.path,
+            owner_id: Number(req.user.id),
+            folder_id: Number(req.body.folder_id)
+        }
+    })
+    res.redirect("/upload")
+
+}
+
+exports.deleteFile = async (req,res,next) =>{
+    try {
+        const file_id = Number(req.body.file_id)
+        console.log(`deleting file id ${file_id}`)
+        const file = await prisma.file.findUnique({where: {id:file_id}})
+        if (!file) return res.redirect("/upload")
+        await fs.unlink(file.path)
+        await prisma.file.delete({where: {id:file_id}})
+        res.redirect("/upload")
+    } catch (err){
+        next(err);
+    }
+}
+
+exports.renameFile = [
+    body("fileName").trim()
+        .isLength({min:1, max:255}).withMessage(`Text Required 255 characters max`),
+    async (req,res,next) => {
+        try{
+            
+            const errors = validationResult(req);
+            const { fileName  } = matchedData(req);
+
+            if (!errors.isEmpty()) {
+            return res.status(400).render("upload-form", {
+                errors: errors.array(),
+            })};
+            const file_id = Number(req.body.file_id)            
+            console.log("renaming folder"+ file_id)
+            const file = await prisma.file.findUnique({where:{id:file_id}})
+            if (!file) return res.redirect("/upload")
+            await prisma.file.update({
+                where: {id: file_id},
+                data: {name: fileName}
+            })
+            res.redirect("/upload")
+        } catch (err){
+            return next(err)
+        }
+}]
+
+exports.downloadFile = async (req,res,next) =>{
+    try{
+        file = await prisma.file.findUnique({
+            where: {id: Number(req.body.file_id)}
+        })
+        if (!file) return res.redirect("/upload")
+        res.download(file.path, file.name)
+    }catch(err){
+        next(err)
+    }
+}
+
+exports.newFolder = [
+    body("folderName").trim()
+        .isLength({min:1, max:30}).withMessage(`Text Required 30 characters max`),
+    async (req,res,next) =>{
+        console.log("creating new folder")
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+        return res.status(400).render("upload-form", {
+            errors: errors.array(),
+        });
+
+        }
+        try {
+            const { folderName  } = matchedData(req);
+            await prisma.folder.create({
+                data:{
+                    name :folderName,
+                    owner_id: req.user.id
+                }
+            })
+            console.log("newfolder created")
+            res.redirect("/upload");
+        } catch (err) {
+            return next(err);
+        }
+    }
+]
+
+exports.deleteFolder = async (req,res,next) =>{
+    try{
+        const folder_id = Number(req.body.folder_id)
+        const folder = await prisma.folder.findUnique({where:{id:folder_id}, include: { files: true }})
+        if (!folder) return res.redirect("/upload")
+        for (const file of folder.files){
+            await fs.unlink(file.path)
+        }
+        await prisma.file.deleteMany({where: {folder_id:folder_id}});
+        await prisma.folder.delete({where: {id:folder_id}});
+        res.redirect("/upload")
+        
+
+    } catch(err){
+        return next(err)
+    }
+}
+
+exports.renameFolder = [
+    body("folderName").trim()
+        .isLength({min:1, max:255}).withMessage(`Text Required 255 characters max`),
+    async (req,res,next) => {
+        try{
+            
+            const errors = validationResult(req);
+            const { folderName  } = matchedData(req);
+
+            if (!errors.isEmpty()) {
+            return res.status(400).render("upload-form", {
+                errors: errors.array(),
+            })};
+            const folder_id = Number(req.body.folder_id)            
+            console.log("renaming folder"+ folder_id)
+            const folder = await prisma.folder.findUnique({where:{id:folder_id}})
+            if (!folder) return res.redirect("/upload")
+            await prisma.folder.update({
+                where: {id: folder_id},
+                data: {name: folderName}
+            })
+            res.redirect("/upload")
+        } catch (err){
+            return next(err)
+        }
+}]
+
+

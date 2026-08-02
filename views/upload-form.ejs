@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>upload a file</title>
+</head>
+<body>
+
+  <h1>Upload a file</h1>
+    <% if (locals.errors) {%>
+    <ul>
+        <% errors.forEach(function(error) { %>
+        <li><%= error.msg %></li>
+        <% }); %>
+    </ul>
+    <% } %>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="upload" />
+        <button type="submit">Upload</button>
+    </form>
+      <form action="/newfolder" method="post">
+        <label for="folderName">Folder Name</label>
+        <input id="folderName" name="folderName" type="text" />
+        <button type="submit">Create</button>
+    </form>
+    <ul>
+    <% userFoldersNames.forEach(folder => { %>
+    <li> 
+          <span id="foldername-<%= folder.id %>" style="display:block"><%= folder.name %></span>
+          <form action="/renamefolder" method="post" id = "edit-<%= folder.id %>" style="display:none">
+            <input type="hidden" name="folder_id" value="<%= folder.id %>">
+            <input name="folderName" value="<%= folder.name %>" type="text" />
+            <button>Rename 2</button>
+          </form>
+          <button id="buttonEdit-<%= folder.id %>" onclick="toggleEditFolder(<%= folder.id %>)" style="display:block">Rename</button>
+          <form action="/deletefolder" method="post">
+            <input type="hidden" name="folder_id" value="<%= folder.id %>">
+            <button>Delete Folder</button>
+          </form>
+      <br>
+      <ul>
+        <% folder.files.forEach(file => { %>
+          <li>
+            <span id="fileName-<%= file.id %>" style="display:block"><%= file.name %></span>
+            <form action="/downloadfile" method="post">
+              <input type="hidden" name="file_id" value="<%= file.id %>">
+              <button>Download</button>
+            </form>
+            <form action="/renamefile" method="post" id = "editFile-<%= file.id %>" style="display:none">
+              <input type="hidden" name="file_id" value="<%= file.id %>">
+              <input name="fileName" value="<%= file.name %>" type="text" />
+              <button>Rename</button>
+            </form>
+            <button id="buttonEdit-<%= file.id %>" onclick="toggleEditFile(<%= file.id %>)" style="display:block">Rename</button>          
+            <form action="/delete" method="post">
+              <input type="hidden" name="file_id" value="<%= file.id %>">
+              <button>Delete File</button>
+            </form>
+          </li>
+
+
+        <% }) %>
+      </ul>
+      <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="folder_id" value="<%= folder.id %>">
+        <input type="file" name="upload">
+        <button>Upload here</button>
+      </form>
+    </li> 
+    
+    <% }) %>
+</ul>
+
+        
+    
+</body>
+</html>
+<script>
+  function toggleEditFolder(id){
+    const form =document.getElementById("edit-"+id);
+    form.style.display = form.style.display === "none" ? "block" : "none"
+    const block =document.getElementById("foldername-"+id);
+    block.style.display = block.style.display === "none" ? "block" : "none"
+    const buttonEdit =document.getElementById("buttonEdit-"+id);
+    buttonEdit.style.display = buttonEdit.style.display === "none" ? "block" : "none"
+
+  }
+  function toggleEditFile(id){
+    const form =document.getElementById("editFile-"+id);
+    form.style.display = form.style.display === "none" ? "block" : "none"
+    const block =document.getElementById("fileName-"+id);
+    block.style.display = block.style.display === "none" ? "block" : "none"
+    const buttonEdit =document.getElementById("buttonEditFile-"+id);
+    buttonEdit.style.display = buttonEdit.style.display === "none" ? "block" : "none"
+
+  }
+</script>
