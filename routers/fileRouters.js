@@ -8,13 +8,13 @@ const {isAuth} = require("../controllers/authControllers")
 
 
 
-const upload = multer({ dest: "uploads/" });   // define once, here
+const upload = multer({ storage:multer.memoryStorage()});   // define once, here
 
 
 
 
 router.get("/upload",isAuth, fileControllers.uploadPage);
-router.post("/upload",upload.single('upload'), fileControllers.uploadFile);
+router.post("/upload",isAuth,upload.single('upload'), fileControllers.uploadFile);
 router.post("/newfolder",isAuth, fileControllers.newFolder);
 router.post("/delete",isAuth, fileControllers.deleteFile);
 router.post("/deletefolder",isAuth, fileControllers.deleteFolder);

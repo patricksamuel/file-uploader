@@ -3,7 +3,7 @@ const { body, validationResult, matchedData } = require("express-validator");
 const passport = require("passport");
 const { prisma } = require("../lib/sigma");
 const multer = require("multer");
-const upload = multer({ dest: "uploads/" });   // define once, here
+const {supabase, SUPABASE_BUCKET} = require("../lib/supabase")
 const fs = require("node:fs/promises");
 
 
@@ -20,14 +20,33 @@ exports.uploadPage = async (req,res) =>{
 
 
 exports.uploadFile = async (req,res,next) =>{
+    const safeName = req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, "_");   // anything not alphanumeric/dot/dash/underscore → _
+
+
+    const objectName = `${req.user.id}/${Date.now()}-${safeName}`;
+
+    console.log("objectName is:", JSON.stringify(objectName));
+    console.log("bucket is:", JSON.stringify(SUPABASE_BUCKET));
+    console.log("user id is:", req.user.id);
+
+    const {error} = await supabase.storage
+        .from(SUPABASE_BUCKET)
+        .upload(objectName, req.file.buffer, { contentType: req.file.mimetype})
+    if (error) throw error;
+    const {data} = supabase.storage
+        .from(SUPABASE_BUCKET)
+        .getPublicUrl(objectName)
+
     await prisma.file.create({
         data:{
             name :req.file.originalname,
-            path :req.file.path,
+            object_name: objectName,
+            path :data.publicUrl,
             owner_id: Number(req.user.id),
             folder_id: Number(req.body.folder_id)
         }
     })
+
     res.redirect("/upload")
 
 }
@@ -38,6 +57,11 @@ exports.deleteFile = async (req,res,next) =>{
         console.log(`deleting file id ${file_id}`)
         const file = await prisma.file.findUnique({where: {id:file_id}})
         if (!file) return res.redirect("/upload")
+
+        const {error} = supabase.storage
+            .from(SUPABASE_BUCKET)
+            .remove([file.object_name])
+        if (error) throw error,
         await fs.unlink(file.path)
         await prisma.file.delete({where: {id:file_id}})
         res.redirect("/upload")
@@ -79,7 +103,15 @@ exports.downloadFile = async (req,res,next) =>{
             where: {id: Number(req.body.file_id)}
         })
         if (!file) return res.redirect("/upload")
-        res.download(file.path, file.name)
+        const {data} = supabase.storage
+            .from(SUPABASE_BUCKET)
+            .getPublicUrl(file.object_name,{
+                download: file.name,
+            })
+
+        
+        res.redirect(data.publicUrl);
+
     }catch(err){
         next(err)
     }
@@ -118,8 +150,9 @@ exports.deleteFolder = async (req,res,next) =>{
         const folder_id = Number(req.body.folder_id)
         const folder = await prisma.folder.findUnique({where:{id:folder_id}, include: { files: true }})
         if (!folder) return res.redirect("/upload")
-        for (const file of folder.files){
-            await fs.unlink(file.path)
+        const names = folder.files.map(f=> f.object_name)
+        if (names.length) {
+            await supabase.storage.from(SUPABASE_BUCKET).remove(names)
         }
         await prisma.file.deleteMany({where: {folder_id:folder_id}});
         await prisma.folder.delete({where: {id:folder_id}});
